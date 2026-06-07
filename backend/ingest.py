@@ -1,27 +1,21 @@
 import os
 from dotenv import load_dotenv
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from sentence_transformers import SentenceTransformer
 from qdrant_client import QdrantClient
-from qdrant_client.models import (
-    Distance, VectorParams, PointStruct, Filter,
-    FieldCondition, MatchValue
-)
+from qdrant_client.models import ( Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue )
 from extractors.youtube import extract_youtube
 from extractors.instagram import extract_instagram
+from embedder import embed_documents, VECTOR_DIM
 
 load_dotenv()
 
 COLLECTION_NAME = "video_chunks"
-EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
 CHUNK_SIZE = 500
 CHUNK_OVERLAP = 50
 qdrant_url = os.getenv("QDRANT_URL")
 qdrant_api_key = os.getenv("QDRANT_API_KEY")
 
-print("[Ingest] Loading embedding model")
-embedder = SentenceTransformer(EMBEDDING_MODEL)
-VECTOR_DIM = embedder.get_sentence_embedding_dimension()
+
 if qdrant_url and qdrant_api_key:
     qdrant = QdrantClient(url=qdrant_url,api_key=qdrant_api_key)
 else:
@@ -41,6 +35,16 @@ def ensure_collection():
         print(f"[Ingest] Created Qdrant collection '{COLLECTION_NAME}'")
     else:
         print(f"[Ingest] Using existing Qdrant collection '{COLLECTION_NAME}'")
+    
+    # Ensure payload index on "video_label" exists
+    info = qdrant.get_collection(COLLECTION_NAME)
+    if "video_label" not in info.payload_schema:
+        qdrant.create_payload_index(
+            collection_name=COLLECTION_NAME,
+            field_name="video_label",
+            field_schema="keyword"
+        )
+        print(f"[Ingest] Created payload index for 'video_label'")
 
 # it will delete existing chunks for a video label before re-ingesting
 def clear_video_chunks(video_label: str):
@@ -86,13 +90,8 @@ def embed_and_store(chunks:list[dict]):
     
     texts = [c["text"] for c in chunks]
 
-    print(f"[Ingest] Embedding {len(texts)} chunks")
-    vectors = embedder.encode(
-        texts,
-        batch_size = 32,
-        show_progress_bar = True,
-        normalize_embeddings=True
-    )
+    print(f"[Ingest] Embedding {len(texts)} chunks via Cohere...")
+    vectors = embed_documents(texts)
 
     points = []
     for i, (chunk,vector) in enumerate(zip(chunks,vectors)):
@@ -115,7 +114,7 @@ def embed_and_store(chunks:list[dict]):
         points.append(
             PointStruct(
                 id = abs(hash(f"{chunk['video_label']}_{chunk['chunk_index']}")),
-                vector=vector.tolist(),
+                vector=vector,
                 payload=payload
             )
         )

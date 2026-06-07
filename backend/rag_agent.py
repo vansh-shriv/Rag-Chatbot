@@ -7,20 +7,17 @@ from langgraph.graph import StateGraph , END
 from langgraph.checkpoint.memory import MemorySaver
 from qdrant_client import QdrantClient
 from qdrant_client.models import Filter,FieldCondition,MatchValue
-from sentence_transformers import SentenceTransformer
+from embedder import embed_query
 from typing import TypedDict , Annotated
 import operator
 
 load_dotenv()
 
 COLLECTION_NAME = "video_chunks"
-EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
 TOP_K = 5
 qdrant_url = os.getenv("QDRANT_URL")
 qdrant_api_key = os.getenv("QDRANT_API_KEY")
 
-print("[RAG] Loading embedding model")
-embedder = SentenceTransformer(EMBEDDING_MODEL)
 
 if qdrant_url and qdrant_api_key:
     qdrant = QdrantClient(url=qdrant_url,api_key=qdrant_api_key)
@@ -41,10 +38,7 @@ class AgentState(TypedDict):
 
 # it will embed query , search qdrant and return context string + sources list 
 def retrieve(query:str,video_label:str=None)->tuple[str,list]:
-    query_vector = embedder.encode(
-        query,
-        normalize_embeddings=True
-    ).tolist()
+    query_vector = embed_query(query)
 
     labels_to_fetch = (
         [video_label] if video_label
