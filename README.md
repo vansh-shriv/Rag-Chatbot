@@ -25,11 +25,17 @@ Built as a technical screening submission. Every output is dynamic — no hardco
 Component | Choice | Why
 
 LLM | Groq (Llama 3.3 70B) | ~800 tokens/sec, free tier, zero latency vs GPT-4o 
+
 Embeddings | BGE-small-en-v1.5 (local) | $0 at any scale vs ~$0.002/1K tokens for OpenAI 
+
 Vector DB | Qdrant (Docker) | Native metadata filtering, horizontal sharding, free
-Orchestration | LangGraph |Stateful graph with built-in MemorySaver, cleaner than LCEL for multi-turn 
+
+Orchestration | LangGraph |Stateful graph with built-in MemorySaver, cleaner than LCEL for multi-turn
+
 Transcript | youtube-transcript-api + yt-dlp | No Whisper cost, instant, works on 99% of public videos 
+
 Instagram stats | Apify instagram-scraper | Most reliable public scraper, $5 free credit covers hundreds of calls 
+
 YouTube stats | YouTube Data API v3 | Official, free (10K units/day), returns real like/comment counts
 
 ---
@@ -141,8 +147,11 @@ Open **http://localhost:5173**
 Method | Endpoint | Description 
 
 POST | `/ingest` | Takes two URLs, runs full pipeline
+
 POST | `/chat` | SSE streaming chat with RAG
+
 GET | `/metadata` | Returns stored video metadata
+
 GET | `/health` | Health Check
 
 ---
