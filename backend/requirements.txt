@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+python-dotenv
+langchain
+langgraph
+langchain-groq
+langchain-community
+langchain-core
+yt-dlp
+youtube-transcript-api
+sentence-transformers
+qdrant-client
+sse-starlette
+httpx
+pydantic

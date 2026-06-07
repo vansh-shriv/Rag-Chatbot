@@ -114,7 +114,7 @@ cp .env.example .env
 ### 3. Start Qdrant
 
 ```bash
-docker run -p 6333:6333 -v qdrant_storage:/qdrant/storage qdrant/qdrant
+docker compose up -d
 ```
 
 ### 4. Start backend
