@@ -16,11 +16,16 @@ COLLECTION_NAME = "video_chunks"
 EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
 CHUNK_SIZE = 500
 CHUNK_OVERLAP = 50
+qdrant_url = os.getenv("QDRANT_URL")
+qdrant_api_key = os.getenv("QDRANT_API_KEY")
 
 print("[Ingest] Loading embedding model")
 embedder = SentenceTransformer(EMBEDDING_MODEL)
 VECTOR_DIM = embedder.get_sentence_embedding_dimension()
-qdrant = QdrantClient(host="localhost",port=6333)
+if qdrant_url and qdrant_api_key:
+    qdrant = QdrantClient(url=qdrant_url,api_key=qdrant_api_key)
+else:
+    qdrant = QdrantClient(host="localhost",port=6333)
 
 # it will create qdrant collection if it doesnt exist
 def ensure_collection():

@@ -16,11 +16,16 @@ load_dotenv()
 COLLECTION_NAME = "video_chunks"
 EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
 TOP_K = 5
+qdrant_url = os.getenv("QDRANT_URL")
+qdrant_api_key = os.getenv("QDRANT_API_KEY")
 
 print("[RAG] Loading embedding model")
 embedder = SentenceTransformer(EMBEDDING_MODEL)
 
-qdrant = QdrantClient(host="localhost",port = 6333)
+if qdrant_url and qdrant_api_key:
+    qdrant = QdrantClient(url=qdrant_url,api_key=qdrant_api_key)
+else:
+    qdrant = QdrantClient(host="localhost",port=6333)
 
 llm = ChatGroq(
     model = "llama-3.3-70b-versatile",
