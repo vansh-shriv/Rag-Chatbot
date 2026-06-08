@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from "react"
 
+const API = import.meta.env.VITE_API_URL
+
 export default function ChatPanel({ threadId }) {
   const [messages, setMessages] = useState([
     {
@@ -28,7 +30,7 @@ export default function ChatPanel({ threadId }) {
     setMessages(prev => [...prev, { role: "assistant", content: "", sources: [] }])
 
     try {
-      const res = await fetch("http://localhost:8000/chat", {
+      const res = await fetch(`${API}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query, thread_id: threadId }),

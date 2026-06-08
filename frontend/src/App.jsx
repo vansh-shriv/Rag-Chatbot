@@ -3,6 +3,7 @@ import VideoCard from "./components/VideoCard"
 import ChatPanel from "./components/ChatPanel"
 import IngestForm from "./components/IngestForm"
 import "./index.css"
+const API = import.meta.env.VITE_API_URL
 
 export default function App() {
   const [videoData, setVideoData] = useState(null)
@@ -15,7 +16,7 @@ export default function App() {
     setError("")
     setVideoData(null)
     try {
-      const res = await fetch("http://localhost:8000/ingest", {
+      const res = await fetch(`${API}/ingest`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
