@@ -30,12 +30,82 @@ def extract_video_id(url:str)->str:
 
 # Return list of segments [{text,start,duration}]
 def get_transcript(video_id: str)-> list[dict]:
+    api_key = os.getenv("YOUTUBE_API_KEY")
+
+    # --- Primary: Official captions via timedtext API ---
+    if api_key:
+        try:
+            return get_transcript_via_api(video_id, api_key)
+        except Exception as e:
+            print(f"[YouTube] API transcript failed: {e}, trying fallback...")
+
+    return get_transcript_via_scraper(video_id)
+
+def get_transcript_via_api(video_id: str, api_key: str) -> list[dict]:
+    captions_url = (
+        f"https://www.googleapis.com/youtube/v3/captions"
+        f"?part=snippet&videoId={video_id}&key={api_key}"
+    )
+    resp = httpx.get(captions_url, timeout=10)
+    data = resp.json()
+
+    if "error" in data:
+        raise ValueError(f"Captions API error: {data['error']['message']}")
+
+    items = data.get("items", [])
+    if not items:
+        raise ValueError("No captions found via API")
+
+    caption_id = None
+    for item in items:
+        snippet = item.get("snippet", {})
+        if snippet.get("language") == "en":
+            caption_id = item["id"]
+            if snippet.get("trackKind") == "standard":
+                break  
+
+    if not caption_id:
+        caption_id = items[0]["id"]  
+
+    timedtext_url = (
+        f"https://www.youtube.com/api/timedtext"
+        f"?v={video_id}&lang=en&fmt=json3"
+    )
+    resp = httpx.get(timedtext_url, timeout=10)
+
+    if resp.status_code != 200 or not resp.text:
+        raise ValueError("Timedtext endpoint returned empty")
+
+    data = resp.json()
+    events = data.get("events", [])
+
+    segments = []
+    for event in events:
+        segs = event.get("segs", [])
+        start = event.get("tStartMs", 0) / 1000
+        duration = event.get("dDurationMs", 0) / 1000
+        text = "".join(s.get("utf8", "") for s in segs).strip()
+        if text and text != "\n":
+            segments.append({
+                "text": text,
+                "start": round(start, 2),
+                "duration": round(duration, 2),
+            })
+
+    if not segments:
+        raise ValueError("No segments in timedtext response")
+
+    print(f"[YouTube] Got {len(segments)} segments via timedtext API")
+    return segments
+
+
+def get_transcript_via_scraper(video_id: str) -> list[dict]:
     if proxy_username and proxy_password:
-        print("[YouTube] Using Webshare proxy for transcript fetch")
         ytt_api = YouTubeTranscriptApi(
-            proxy_config = WebshareProxyConfig(
+            proxy_config=WebshareProxyConfig(
                 proxy_username=proxy_username,
                 proxy_password=proxy_password,
+                filter_ip_locations=["in", "us", "gb"],
             )
         )
     else:
@@ -49,11 +119,16 @@ def get_transcript(video_id: str)-> list[dict]:
             transcript = transcript_list.find_generated_transcript(["en"])
 
         fetched = transcript.fetch()
-        return [{"text": s.text, "start": s.start,"duration": s.duration} for s in fetched]
+        return [
+            {"text": s.text, "start": s.start, "duration": s.duration}
+            for s in fetched
+        ]
     except TranscriptsDisabled:
-        raise ValueError(f"Transcripts are disabled for video: {video_id}")
+        raise ValueError(f"Transcripts disabled for: {video_id}")
     except Exception as e:
         raise ValueError(f"Could not fetch transcript: {str(e)}")
+
+
 
 # help to get real data through YouTube Data API v3
 def get_yt_api_stats(video_id: str, api_key:str)->dict:
