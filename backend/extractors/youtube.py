@@ -11,6 +11,7 @@ from urllib.parse import urlparse , parse_qs
 from dotenv import load_dotenv
 
 load_dotenv()
+proxy_url = os.getenv("WEBSHARE_PROXY_URL")
 
 # Extracts video ID from any Youtube URL format
 def extract_video_id(url:str)->str:
@@ -26,7 +27,15 @@ def extract_video_id(url:str)->str:
 
 # Return list of segments [{text,start,duration}]
 def get_transcript(video_id: str)-> list[dict]:
-    ytt_api = YouTubeTranscriptApi()
+    proxies = None
+    if proxy_url:
+        proxies = {
+            "http": proxy_url,
+            "https": proxy_url,
+        }
+        print(f"[YouTube] Using proxy for transcript fetch")
+
+    ytt_api = YouTubeTranscriptApi(proxies=proxies)
 
     try:
         transcript_list = ytt_api.list(video_id)
@@ -76,6 +85,10 @@ def get_metadata(url:str)->dict:
         "quiet":True,
         "skip_download":True,
     }
+    if proxy_url:
+        ydl_opts["proxy"] = proxy_url
+        print("[YouTube] Using proxy for yt-dlp metadata")
+
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url,download=False)
 
