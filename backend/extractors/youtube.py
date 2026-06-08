@@ -7,11 +7,14 @@ import httpx
 import os
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api._errors import NoTranscriptFound, TranscriptsDisabled
+from youtube_transcript_api.proxies import WebshareProxyConfig
 from urllib.parse import urlparse , parse_qs
 from dotenv import load_dotenv
 
 load_dotenv()
 proxy_url = os.getenv("WEBSHARE_PROXY_URL")
+proxy_username = os.getenv("WEBSHARE_PROXY_USERNAME")
+proxy_password = os.getenv("WEBSHARE_PROXY_PASSWORD")
 
 # Extracts video ID from any Youtube URL format
 def extract_video_id(url:str)->str:
@@ -27,15 +30,16 @@ def extract_video_id(url:str)->str:
 
 # Return list of segments [{text,start,duration}]
 def get_transcript(video_id: str)-> list[dict]:
-    proxies = None
-    if proxy_url:
-        proxies = {
-            "http": proxy_url,
-            "https": proxy_url,
-        }
-        print(f"[YouTube] Using proxy for transcript fetch")
-
-    ytt_api = YouTubeTranscriptApi(proxies=proxies)
+    if proxy_username and proxy_password:
+        print("[YouTube] Using Webshare proxy for transcript fetch")
+        ytt_api = YouTubeTranscriptApi(
+            proxy_config = WebshareProxyConfig(
+                proxy_username=proxy_username,
+                proxy_password=proxy_password,
+            )
+        )
+    else:
+        ytt_api = YouTubeTranscriptApi()
 
     try:
         transcript_list = ytt_api.list(video_id)
