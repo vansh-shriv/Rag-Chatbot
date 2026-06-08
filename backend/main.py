@@ -16,7 +16,7 @@ app = FastAPI(title="Video RAG Chatbot API")
 allowed_origins = [
     "http://localhost:3000",
     "http://localhost:5173",
-    os.getenv("FRONTEND_URL", ""), 
+    os.getenv("FRONTEND_URL", ""),
 ]
 
 app.add_middleware(
