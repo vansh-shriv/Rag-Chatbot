@@ -42,39 +42,37 @@ def get_transcript(video_id: str)-> list[dict]:
     return get_transcript_via_scraper(video_id)
 
 def get_transcript_via_api(video_id: str, api_key: str) -> list[dict]:
-    captions_url = (
-        f"https://www.googleapis.com/youtube/v3/captions"
-        f"?part=snippet&videoId={video_id}&key={api_key}"
-    )
-    resp = httpx.get(captions_url, timeout=10)
-    data = resp.json()
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/124.0.0.0 Safari/537.36"
+        ),
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept": "*/*",
+        "Referer": f"https://www.youtube.com/watch?v={video_id}",
+    }
 
-    if "error" in data:
-        raise ValueError(f"Captions API error: {data['error']['message']}")
-
-    items = data.get("items", [])
-    if not items:
-        raise ValueError("No captions found via API")
-
-    caption_id = None
-    for item in items:
-        snippet = item.get("snippet", {})
-        if snippet.get("language") == "en":
-            caption_id = item["id"]
-            if snippet.get("trackKind") == "standard":
-                break  
-
-    if not caption_id:
-        caption_id = items[0]["id"]  
-
+    # Direct call — no proxy, no youtube-transcript-api
     timedtext_url = (
         f"https://www.youtube.com/api/timedtext"
-        f"?v={video_id}&lang=en&fmt=json3"
+        f"?v={video_id}&lang=en&fmt=json3&xorb=2&xobt=3&xovt=3"
     )
-    resp = httpx.get(timedtext_url, timeout=10)
 
-    if resp.status_code != 200 or not resp.text:
-        raise ValueError("Timedtext endpoint returned empty")
+    # Use a clean httpx client with no proxy env vars
+    with httpx.Client(
+        headers=headers,
+        follow_redirects=True,
+        timeout=15,
+        trust_env=False,   # ← ignore ALL proxy env vars
+    ) as client:
+        resp = client.get(timedtext_url)
+
+    if resp.status_code != 200:
+        raise ValueError(f"Timedtext returned {resp.status_code}")
+
+    if not resp.text or resp.text.strip() == "":
+        raise ValueError("Timedtext returned empty response")
 
     data = resp.json()
     events = data.get("events", [])
@@ -93,11 +91,10 @@ def get_transcript_via_api(video_id: str, api_key: str) -> list[dict]:
             })
 
     if not segments:
-        raise ValueError("No segments in timedtext response")
+        raise ValueError("No segments parsed from timedtext")
 
-    print(f"[YouTube] Got {len(segments)} segments via timedtext API")
+    print(f"[YouTube] Got {len(segments)} transcript segments via timedtext")
     return segments
-
 
 def get_transcript_via_scraper(video_id: str) -> list[dict]:
     if proxy_username and proxy_password:
